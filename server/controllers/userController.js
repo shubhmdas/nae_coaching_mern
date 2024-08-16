@@ -1,10 +1,10 @@
 import bcrypt from 'bcrypt';
-import User from '../models/userModel.js';
+import { User } from '../models/User.js';
 import { createSecretToken } from '../utils/SecretToken.js';
 
-export const signUp = async (req, res) => {
+export const userSignUp = async (req, res) => {
 	try {
-		const { fullName, phoneNumber, email, password } = req.body;
+		const { fullName, phoneNumber, email, password, role } = req.body;
 
 		// Check if all required fields are provided
 		if (!fullName) {
@@ -19,17 +19,22 @@ export const signUp = async (req, res) => {
 		if (!password) {
 			return res.status(400).json({ error: 'Password is required' });
 		}
+		if (!role) {
+			return res.status(400).json({ error: 'Role is required' });
+		}
 
 		// Check if user with this phone number already exists
 		const existingUser = await User.findOne({ phoneNumber });
 		if (existingUser) {
 			return res.status(400).json({
-				message: 'A user with this phone number already exists.',
+				error: 'A user with this phone number already exists.',
 			});
 		}
 
 		// Create a new user and generate a token
-		const user = new User.crete({ fullName, phoneNumber, email, password });
+		const user = new User({ fullName, phoneNumber, email, password, role });
+		await user.save();
+
 		const token = createSecretToken(user._id);
 
 		// Add token to cookie in the resposne
@@ -38,16 +43,18 @@ export const signUp = async (req, res) => {
 			httpOnly: false,
 		});
 
+		user = user.toObject;
+		delete user.password;
 		return res.status(201).json({
 			message: 'User created successfully',
 			user,
 		});
-	} catch (err) {
-		res.status(400).json({ error: `Error: ${err}` });
+	} catch (error) {
+		res.status(400).json({ error: error.message });
 	}
 };
 
-export const login = async (req, res) => {
+export const userLogin = async (req, res) => {
 	try {
 		const { phoneNumber, password } = req.body;
 
@@ -63,7 +70,7 @@ export const login = async (req, res) => {
 		const user = await User.findOne({ phoneNumber });
 		if (!user) {
 			return res.status(400).json({
-				message: 'User with this phone number does not exist.',
+				error: 'User with this phone number does not exist.',
 			});
 		}
 
@@ -72,22 +79,17 @@ export const login = async (req, res) => {
 		console.log('Auth: ', auth);
 		if (!auth) {
 			return res.status(400).json({
-				message: 'Incorrect password. Please try again.',
+				error: 'Incorrect password. Please try again.',
 			});
 		}
 
 		// Generate a token and send in the response
 		const token = createSecretToken(user._id);
-
-		// Add token to cookie in the resposne
-		res.cookie('token', token, {
-			withCredentials: true,
-			httpOnly: false,
-		});
-
-		return res.status(201).json({ message: 'Logged in successfully.' });
-	} catch (err) {
-		res.status(400).json({ error: `Error: ${err}` });
+		return res
+			.status(201)
+			.json({ message: 'Logged in successfully.', token });
+	} catch (error) {
+		res.status(400).json({ error: error.message });
 	}
 };
 

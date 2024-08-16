@@ -16,7 +16,9 @@ import sampleRoute from './routes/sampleRoute.js';
 app.use('/', sampleRoute);
 
 import userRoute from './routes/userRoute.js';
+import studentRoute from './routes/studentRoute.js';
 app.use('/api/users', userRoute);
+app.use('/api/students', studentRoute);
 
 const PORT = process.env.PORT | 5000;
 app.listen(PORT, () => console.log(`Listening on port ${PORT}.`));
